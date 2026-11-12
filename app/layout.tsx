@@ -81,8 +81,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <SiteFooter />
             {/* Rendered once, inside CartProvider, so it works on every page. */}
             <CartDrawer />
-            {/* Cart change events, subscribed once inside CartProvider. */}
-            <CartAnalytics />
+            {/*
+              Cart change events, subscribed once inside CartProvider.
+
+              Mounted only when `ShopifyScripts` is actually rendered. Unlike
+              the view trackers, which publish through a null-safe
+              `getAnalytics()?.publish(...)`, `trackCartAnalytics()` *throws*
+              when `window.Shopify.analytics` is missing — and the bus only
+              exists once `ShopifyScripts` has loaded, which needs `SHOP_ID`.
+              `useCartAnalytics()` is a hook, so it cannot be guarded from
+              inside the component; the component must not mount at all.
+            */}
+            {shopifyScriptsShop ? <CartAnalytics /> : null}
           </AppShell>
         </Suspense>
       </body>

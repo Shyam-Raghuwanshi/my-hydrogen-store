@@ -1,12 +1,87 @@
-# Hydrogen Store
+# Hydrogen Store — Headless Shopify Storefront
 
-A headless Shopify storefront built with **Next.js 16 (App Router)** and
-**`@shopify/hydrogen` 2026.10**, running against `mock.shop` out of the box.
+A production-shaped headless Shopify storefront built with **Next.js 16 (App
+Router)**, **React 19** and **`@shopify/hydrogen` 2026.10**.
 
-In Hydrogen 2026.10 Hydrogen is a **server-handler library you compose**, not a
-framework that owns the request. Next owns routing; Hydrogen owns the Shopify
-endpoints, the cart/product/collection client stores, and the Storefront API
-client.
+Full catalog browsing, variant selection, a server-rendered cart and a real
+Shopify checkout handoff — all server-driven, fully typed, and working with
+JavaScript disabled.
+
+> **About the data:** this storefront runs against
+> [`mock.shop`](https://mock.shop), Shopify's public tokenless demo catalog.
+> It is **not** connected to a real merchant store, and no real orders can be
+> placed. Every integration point is production code — pointing it at a live
+> `*.myshopify.com` store is a configuration change, not a rewrite. See
+> [Moving to a real store](#moving-to-a-real-store).
+
+## Live demo
+
+**🔗 Live demo:** _not yet deployed — add the URL here once hosted._
+
+To run it locally in under a minute, see [Getting started](#getting-started).
+
+## Screenshots
+
+| Home | Product detail |
+| --- | --- |
+| ![Storefront home page with hero and collection grid](docs/screenshots/home.png) | ![Product page with image gallery, size and colour variant pickers, and add to cart](docs/screenshots/product.png) |
+
+| Collection | Search |
+| --- | --- |
+| ![Collection page with product grid, sort and filter controls](docs/screenshots/collection.png) | ![Search results page](docs/screenshots/search.png) |
+
+_Captured from the running build against the `mock.shop` catalog._
+
+## What's implemented
+
+| Area | Status |
+| --- | --- |
+| Home page — featured collections + best sellers | ✅ Server-rendered, cached |
+| Collection listing and collection detail | ✅ With sort, filters, cursor pagination |
+| Product detail — gallery, variants, pricing | ✅ Variant state in the URL |
+| Full-text product search | ✅ |
+| Cart — add, update quantity, remove | ✅ Optimistic UI + server source of truth |
+| Cart drawer + full `/cart` page | ✅ Accessible `<dialog>`, light dismiss |
+| Discount codes and order notes | ✅ |
+| Checkout handoff | ✅ Redirects to Shopify-hosted checkout |
+| Customer accounts (login, profile, logout) | ⚙️ Code complete; needs a real store (see [Known limitations](#known-limitations)) |
+| Shopify analytics + consent | ⚙️ Code complete; needs `SHOP_ID` |
+| SEO — metadata, `robots.txt`, Shopify URL redirects | ✅ |
+| Works without JavaScript | ✅ End to end |
+
+### Verified behaviour
+
+The following were exercised against the running production build:
+
+- Product, collection, search and home queries return live `mock.shop` data.
+- Variant selection round-trips through URL option params (`?Size=…&Color=…`).
+- Cart create → add line → update quantity → remove line, all via Hydrogen's
+  `/api/cart` handler, with the cart cookie persisting across requests.
+- `/cart` server-renders the shopper's real cart, including the subtotal and a
+  checkout link resolved from `cart.checkoutUrl`.
+- `/checkout` redirects to the Shopify-hosted checkout.
+- Discount codes round-trip to the Storefront API.
+- `npm run build`, `npm run typecheck` and `npm run lint` all pass clean.
+
+## Engineering highlights
+
+- **Hydrogen 2026.10 as a library, not a framework.** Next owns routing;
+  Hydrogen owns the Shopify endpoints, the cart/product/collection client
+  stores, and the Storefront API client. One `createCartServerHandlers`
+  instance serves the HTTP endpoint, seeds the server render, and types the
+  React bindings — the three can't drift apart.
+- **Cache Components.** The root layout is a static shell; every request-time
+  read (cart, session) sits under `<Suspense>` with `connection()`. Catalog
+  reads are explicit `"use cache"` cache-points with `cacheLife`/`cacheTag` —
+  no route-segment `revalidate` guesswork.
+- **Progressive enhancement throughout.** Variant pickers are real links, cart
+  mutations are real form posts, filters are a `GET` form. Hydration upgrades
+  them; it isn't required by them.
+- **Typed GraphQL.** `npm run typecheck` runs `hydrogen gql check`, validating
+  every `gql()` document against the live Storefront and Customer Account
+  schemas — something `tsc` alone cannot do.
+- **No secrets in the repo.** All configuration is environment-driven;
+  `.env.example` is annotated and contains no credentials.
 
 ## Getting started
 
@@ -102,6 +177,12 @@ Catalog reads are explicit `"use cache"` cache-points with `cacheLife` /
   filter arguments server-side. The filter UI, URL round-tripping, and chips are
   fully wired and work against a real store; against mock.shop only the price
   control renders (as a fallback) and the result set does not narrow.
+- **Analytics needs `SHOP_ID`.** `ShopifyScripts` — and therefore the analytics
+  bus, consent banner, and Shop Pay — only loads when `SHOP_ID` is set. Without
+  it the storefront loads just Shopify's Standard Actions module so the cart
+  still works, the view trackers no-op safely, and the cart tracker is not
+  mounted (it throws rather than no-ops when the bus is absent). Set `SHOP_ID`
+  to turn analytics on.
 - **mock.shop has no Customer Account API.** Without `SHOP_ID` and a client ID
   the account handlers are not registered and `/account` shows a "not
   configured" panel. Sign-in was verified only as far as the OAuth HTTPS-origin

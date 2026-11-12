@@ -86,6 +86,13 @@ export function SearchViewedTracker({ searchTerm }: { searchTerm: string }) {
  * Rendered inside `CartProvider` — the React binding's equivalent of calling
  * `trackCartAnalytics(cartStore)`, which must never happen at store-creation
  * time because that runs during SSR where the bus does not exist.
+ *
+ * ONLY MOUNT THIS WHEN `ShopifyScripts` IS RENDERED (i.e. `SHOP_ID` is set).
+ * Unlike the view trackers above, which publish through a null-safe
+ * `getAnalytics()?.publish(...)`, `trackCartAnalytics()` *throws*
+ * ("Shopify analytics bus is not available") when `window.Shopify.analytics`
+ * is missing. `useCartAnalytics()` is a hook, so it cannot be guarded from in
+ * here — the caller must not render the component. See `app/layout.tsx`.
  */
 export function CartAnalytics() {
   useCartAnalytics();
